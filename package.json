@@ -1,0 +1,6 @@
+{
+  "name": "nexus-skills",
+  "version": "0.1.0",
+  "type": "module",
+  "main": ".opencode/plugins/nexus.js"
+}

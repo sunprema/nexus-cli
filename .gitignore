@@ -1,0 +1,34 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+/nexus
+/dist
+
+# Test binary, built with `go test -c`
+*.test
+
+# Code coverage profiles and other test artifacts
+*.out
+coverage.*
+*.coverprofile
+profile.cov
+
+# Go workspace file
+go.work
+go.work.sum
+
+# env file
+.env
+.envrc
+
+.DS_Store
+
+# Editor/IDE
+# .idea/
+# .vscode/
+
+# Node (skills/plugin manifests only — no committed dependency tree)
+node_modules/

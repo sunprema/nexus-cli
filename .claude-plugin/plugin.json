@@ -1,0 +1,19 @@
+{
+  "name": "nexus",
+  "version": "0.1.0",
+  "description": "Skills for Project Nexus's bicameral Code/Explainer branch workflow",
+  "author": {
+    "name": "sunprema"
+  },
+  "homepage": "https://github.com/sunprema/nexus-cli",
+  "repository": "https://github.com/sunprema/nexus-cli",
+  "license": "MIT",
+  "keywords": [
+    "nexus",
+    "skills",
+    "narrate",
+    "explainer",
+    "agent-workflows",
+    "plugins"
+  ]
+}

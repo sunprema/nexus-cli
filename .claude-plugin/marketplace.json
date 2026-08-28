@@ -1,0 +1,20 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "nexus-skills",
+  "description": "Development marketplace for Project Nexus's cross-agent skills",
+  "owner": {
+    "name": "sunprema"
+  },
+  "plugins": [
+    {
+      "name": "nexus",
+      "description": "Skills for Project Nexus's bicameral Code/Explainer branch workflow",
+      "version": "0.1.0",
+      "source": "./",
+      "category": "development",
+      "author": {
+        "name": "sunprema"
+      }
+    }
+  ]
+}
