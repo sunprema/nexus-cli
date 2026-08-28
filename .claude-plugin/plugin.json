@@ -1,7 +1,7 @@
 {
   "name": "nexus",
   "version": "0.1.0",
-  "description": "Skills for Project Nexus's bicameral Code/Explainer branch workflow",
+  "description": "Skills for Project Nexus's bicameral Code/Explainer branch workflow. CLI: github.com/sunprema/nexus-cli · VS Code extension: github.com/sunprema/nexus-vscode",
   "author": {
     "name": "sunprema"
   },

@@ -73,6 +73,14 @@ The prompt/style the skill writes in is editable per-repo at
 `.nexus/skills/narrator-prompt.md` (created by `nexus init`) — tune tone,
 vocabulary, or conventions without a CLI release.
 
+## Editor integration
+
+[nexus-vscode](https://github.com/sunprema/nexus-vscode) is a VS Code
+extension for reading explainer entries without leaving the editor: a
+CodeLens on every file shows its narration status, and clicking it opens
+the explainer split-screen beside the code. It shells out to this CLI
+(`nexus show`/`diff`/`map`/`tour`), so it needs `nexus` on `PATH`.
+
 ## Development
 
 ```bash
