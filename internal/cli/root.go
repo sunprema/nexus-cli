@@ -5,13 +5,16 @@ package cli
 
 import (
 	"github.com/spf13/cobra"
+
+	"github.com/sunprema/nexus-cli/internal/versioninfo"
 )
 
 // NewRootCmd builds the 'nexus' root command.
 func NewRootCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "nexus",
-		Short: "Bicameral Code/Explainer branch workflow",
+		Use:     "nexus",
+		Short:   "Bicameral Code/Explainer branch workflow",
+		Version: versioninfo.Version,
 		Long: `Nexus decouples machine-generated code from human-readable intent.
 
 An 'explainer' branch mirrors the repository's file structure with short,
@@ -28,5 +31,6 @@ the source of truth: nothing here rewrites main to match the explainer.`,
 	cmd.AddCommand(newNexusMapCmd())
 	cmd.AddCommand(newNexusTourCmd())
 	cmd.AddCommand(newNexusPostCommitHookCmd())
+	cmd.AddCommand(newMCPCmd())
 	return cmd
 }

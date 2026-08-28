@@ -9,6 +9,7 @@ import (
 	"os"
 
 	"github.com/sunprema/nexus-cli/internal/cli"
+	"github.com/sunprema/nexus-cli/internal/versioninfo"
 )
 
 type silentError interface {
@@ -17,6 +18,7 @@ type silentError interface {
 }
 
 func main() {
+	versioninfo.Load()
 	root := cli.NewRootCmd()
 	if err := root.ExecuteContext(context.Background()); err != nil {
 		var silent silentError
