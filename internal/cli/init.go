@@ -53,6 +53,14 @@ type NexusSettings struct {
 	SourceOfTruth string `json:"source_of_truth"`
 	// ExplainerBranch is the branch mirroring main with narrative Markdown.
 	ExplainerBranch string `json:"explainer_branch"`
+	// VerifierModel names the model the 'narrate' skill should use for the
+	// independent verifier subagent it spawns in its step 7 (see
+	// docs/adr/0002-nonblocking-desync-markers.md). Empty means "use the
+	// coding agent's default subagent model" — this is unset by default so
+	// existing repos are unaffected; a team fills it in to pin verification
+	// to a specific model (e.g. one it trusts more for catching mismatches,
+	// independent of whatever narrated the draft).
+	VerifierModel string `json:"verifier_model"`
 }
 
 const defaultNarratorPrompt = `# Nexus Narrator Prompt

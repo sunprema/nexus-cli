@@ -131,7 +131,9 @@ followed by a blank line, then the content.
 12. Verify every drafted entry (step 7) with a fresh subagent that has no
     memory of drafting it — an agent checking its own work isn't
     independent. Give the verifier only the code and the drafted text, not
-    the narrator's reasoning or the house-style prompt.
+    the narrator's reasoning or the house-style prompt. Run it on
+    `.nexus/settings.json`'s `verifier_model` when set (step 1); otherwise
+    your default subagent model.
 13. A verified mismatch is never a reason to withhold the commit or edit the
     code. Write it as a `**Nexus desync**` marker in the explainer file
     (step 7) and commit anyway.
@@ -158,6 +160,11 @@ test -f .nexus/settings.json && test -f .nexus/skills/narrator-prompt.md
 
 If either is missing, stop and tell the user: "Nexus isn't set up in this
 repo. Run `nexus init` first." Do not print the response header.
+
+Read `.nexus/settings.json`'s `verifier_model` field and hold onto it for
+step 7 — empty (the default) means "use your normal subagent model," a
+non-empty value names the model the verifier subagent should run on
+instead.
 
 ### 2. Read the house style
 
@@ -337,7 +344,9 @@ Create parent directories under the worktree as needed.
 
 For each file just written in step 6 (skip ones that were only deleted —
 nothing to verify), spawn a **fresh subagent with no memory of drafting
-it** — verifying your own draft isn't independent. Give it only:
+it** — verifying your own draft isn't independent. If step 1's
+`verifier_model` is non-empty, run this subagent on that model instead of
+your default; otherwise use your default. Give it only:
 
 - The code: the diff and full file content gathered in step 4.
 - The explainer content just written in step 6.
