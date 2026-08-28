@@ -52,6 +52,55 @@ committing.
 
 Run `nexus <command> --help` for full flag and argument details.
 
+## MCP server
+
+`nexus mcp` runs a read-only [Model Context Protocol](https://modelcontextprotocol.io)
+server over stdio, exposing the explainer branch as three tools instead of
+requiring an agent to shell out to `nexus` and parse its output:
+
+- **`nexus_explainer`** — a code file's current explainer entry (same data
+  as `nexus show <path> --json`). An agent should call this *before*
+  reading or editing a file: the explainer often already captures intent
+  and edge cases that would otherwise have to be re-derived from the code.
+- **`nexus_map`** — the whole-branch index of every narrated file and
+  guided tour (same data as `nexus map --json`). Meant to be called first
+  when orienting in an unfamiliar repo — the cheapest way to learn what's
+  there before reading any code.
+- **`nexus_tour`** — one guided tour's ordered stops (same data as
+  `nexus tour <slug> --json`).
+
+All three share the exact same lookup code the CLI commands use, so an MCP
+client and a shell script can never see different results. Use MCP over
+shelling out when the host doesn't want to spawn a subprocess per lookup,
+or when it can hold a longer-lived server connection across a whole
+session instead of one CLI invocation per question.
+
+### Configuring an agent to use it
+
+Any MCP host that can launch a stdio server works. The general shape:
+
+```json
+{
+  "mcpServers": {
+    "nexus": {
+      "command": "nexus",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+- **Claude Code**: `claude mcp add nexus -- nexus mcp` (add `-s project` to
+  commit it to the repo's `.mcp.json` for the whole team, instead of just
+  your own local config).
+- **Cursor / other JSON-config hosts**: add the block above to the host's
+  MCP config file (e.g. Cursor's `.cursor/mcp.json`).
+- **Any other MCP-host agent**: point it at the `nexus mcp` command the
+  same way — it only needs to know how to launch a stdio server.
+
+`nexus` must be on `PATH` for the host to find it. Verify the server
+responds by asking the agent to call `nexus_map`.
+
 ## The `narrate` skill
 
 Narration requires an LLM, so it isn't built into the `nexus` binary — it's
