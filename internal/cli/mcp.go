@@ -201,6 +201,37 @@ func mcpToolDefs() []map[string]any {
 				},
 			}),
 		},
+		{
+			"name":        "nexus_speak",
+			"description": "Read an explainer entry ALOUD to the person through their computer's own text-to-speech (macOS say, Linux espeak, Windows System.Speech) — for when they ask to \"read me\", \"tell me\", or \"listen to\" a file's summary or story instead of reading it on screen. Give either 'path' (a code file; mode \"summary\" for the one-sentence gist, \"full\" for the whole narrative) or 'text' (anything you've composed yourself, e.g. a tour's stops strung together, or your own answer to their question — markdown is stripped before speaking). Returns as soon as audio starts, not when it finishes: 'estimated_seconds' tells you how long it will play, so don't call again with new text until it's done unless the person asks to skip ahead, and DON'T repeat the spoken text in your reply — a one-line confirmation is enough. Only one thing speaks at a time; a new call replaces the current one, and stop=true interrupts it (\"stop reading\"). Returns JSON: spoke=false with 'error' means nothing was read (no entry yet, no summary yet, Nexus not set up) — relay the reason. A tool-level error means no speech engine could be found on this machine.",
+			"inputSchema": objSchema(map[string]any{
+				"path": map[string]any{
+					"type":        "string",
+					"description": "Code file path, relative to the repo root, whose explainer entry to read (e.g. \"src/auth.py\"). Ignored when 'text' is given.",
+				},
+				"mode": map[string]any{
+					"type":        "string",
+					"enum":        []string{"summary", "full"},
+					"description": "With 'path': \"summary\" reads the one-sentence gist, \"full\" (default) the whole narrative.",
+				},
+				"text": map[string]any{
+					"type":        "string",
+					"description": "Text to read verbatim instead of an explainer entry. Markdown is stripped first.",
+				},
+				"voice": map[string]any{
+					"type":        "string",
+					"description": "Optional voice name for the engine (e.g. \"Samantha\" on macOS). Only pass one if the person asked for it; otherwise their NEXUS_SPEAK_VOICE default applies.",
+				},
+				"stop": map[string]any{
+					"type":        "boolean",
+					"description": "true stops whatever is currently being read and speaks nothing else.",
+				},
+				"print": map[string]any{
+					"type":        "boolean",
+					"description": "true returns the prepared text in 'text' instead of speaking it — for checking what would be read.",
+				},
+			}),
+		},
 	}
 }
 
@@ -208,8 +239,13 @@ func handleMCPToolCall(ctx context.Context, params json.RawMessage) (any, *mcpEr
 	var call struct {
 		Name      string `json:"name"`
 		Arguments struct {
-			Path string `json:"path"`
-			Slug string `json:"slug"`
+			Path  string `json:"path"`
+			Slug  string `json:"slug"`
+			Mode  string `json:"mode"`
+			Text  string `json:"text"`
+			Voice string `json:"voice"`
+			Stop  bool   `json:"stop"`
+			Print bool   `json:"print"`
 		} `json:"arguments"`
 	}
 	if len(params) > 0 {
@@ -228,6 +264,16 @@ func handleMCPToolCall(ctx context.Context, params json.RawMessage) (any, *mcpEr
 		return handleNexusMapTool(ctx)
 	case "nexus_tour":
 		return handleNexusTourTool(ctx, call.Arguments.Slug)
+	case "nexus_speak":
+		return handleNexusSpeakTool(ctx, nexusSpeakRequest{
+			Path:   call.Arguments.Path,
+			Mode:   call.Arguments.Mode,
+			Text:   call.Arguments.Text,
+			Voice:  call.Arguments.Voice,
+			Stop:   call.Arguments.Stop,
+			Print:  call.Arguments.Print,
+			Detach: true,
+		})
 	default:
 		return nil, &mcpError{Code: -32602, Message: "unknown tool: " + call.Name}
 	}
@@ -298,6 +344,29 @@ func handleNexusTourTool(ctx context.Context, slug string) (any, *mcpError) {
 	}
 
 	result, err := computeNexusTourShow(ctx, repoRoot, slug)
+	if err != nil {
+		return mcpToolErrorResult(err.Error()), nil
+	}
+
+	data, err := json.Marshal(result)
+	if err != nil {
+		return mcpToolErrorResult(fmt.Sprintf("encode result: %v", err)), nil
+	}
+	return mcpToolTextResult(string(data)), nil
+}
+
+// handleNexusSpeakTool serves the nexus_speak MCP tool. It shares
+// runNexusSpeak (speak.go) with `nexus speak`, always detached so a long
+// narrative returns as soon as audio starts instead of blocking the agent.
+// "Nothing to read" outcomes (no entry, no summary, Nexus not set up) are
+// ordinary results carrying an 'error' field; only "no speech engine on
+// this machine" or a failure to spawn it is a tool error.
+func handleNexusSpeakTool(ctx context.Context, req nexusSpeakRequest) (any, *mcpError) {
+	if !req.Stop && req.Path == "" && req.Text == "" {
+		return mcpToolErrorResult("invalid params: path or text is required (or stop=true)"), nil
+	}
+
+	result, err := runNexusSpeak(ctx, req)
 	if err != nil {
 		return mcpToolErrorResult(err.Error()), nil
 	}

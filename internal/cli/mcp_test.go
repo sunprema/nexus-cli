@@ -399,3 +399,93 @@ func TestMCPServer_ParseError(t *testing.T) {
 		t.Errorf("expected parse error -32700, got %+v", resp.Error)
 	}
 }
+
+// nexus_speak is a side-effecting tool, so its tests never let it reach a
+// real engine: print=true returns the prepared text without one, and
+// argument validation is checked as tool-level (not protocol-level) errors.
+func TestMCPServer_ToolsListIncludesSpeak(t *testing.T) {
+	t.Parallel()
+	resps := driveMCP(t, `{"jsonrpc":"2.0","id":40,"method":"tools/list"}`)
+	if len(resps) != 1 {
+		t.Fatalf("expected 1 response, got %d", len(resps))
+	}
+	var res struct {
+		Tools []struct {
+			Name        string `json:"name"`
+			InputSchema struct {
+				Properties map[string]json.RawMessage `json:"properties"`
+			} `json:"inputSchema"`
+		} `json:"tools"`
+	}
+	if err := json.Unmarshal(resps[0].Result, &res); err != nil {
+		t.Fatalf("unmarshal tools/list: %v", err)
+	}
+	for _, tool := range res.Tools {
+		if tool.Name != "nexus_speak" {
+			continue
+		}
+		for _, prop := range []string{"path", "mode", "text", "voice", "stop", "print"} {
+			if _, ok := tool.InputSchema.Properties[prop]; !ok {
+				t.Errorf("nexus_speak schema missing property %q", prop)
+			}
+		}
+		return
+	}
+	t.Fatalf("nexus_speak not advertised in tools/list: %s", resps[0].Result)
+}
+
+func TestMCPServer_NexusSpeakToolCall_PrintReturnsText(t *testing.T) {
+	withNoTTSEngine(t)
+	resps := driveMCP(t, `{"jsonrpc":"2.0","id":41,"method":"tools/call","params":{"name":"nexus_speak","arguments":{"text":"Read **this** aloud.","print":true}}}`)
+	if len(resps) != 1 {
+		t.Fatalf("expected 1 response, got %d", len(resps))
+	}
+	text := mcpResultText(t, resps[0].Result)
+	var result struct {
+		Spoke            bool   `json:"spoke"`
+		Words            int    `json:"words"`
+		EstimatedSeconds int    `json:"estimated_seconds"`
+		Text             string `json:"text"`
+		Error            string `json:"error"`
+	}
+	if err := json.Unmarshal([]byte(text), &result); err != nil {
+		t.Fatalf("nexus_speak should return nexusSpeakResult JSON, got %q (err %v)", text, err)
+	}
+	if result.Spoke || result.Text != "Read this aloud." || result.Words != 3 || result.Error != "" {
+		t.Errorf("unexpected print result %+v", result)
+	}
+}
+
+func TestMCPServer_NexusSpeakToolCall_MissingArgsIsToolError(t *testing.T) {
+	t.Parallel()
+	resps := driveMCP(t, `{"jsonrpc":"2.0","id":42,"method":"tools/call","params":{"name":"nexus_speak","arguments":{}}}`)
+	if len(resps) != 1 {
+		t.Fatalf("expected 1 response, got %d", len(resps))
+	}
+	var res struct {
+		IsError bool `json:"isError"`
+	}
+	if err := json.Unmarshal(resps[0].Result, &res); err != nil {
+		t.Fatalf("unmarshal tool result: %v", err)
+	}
+	if !res.IsError {
+		t.Fatalf("neither path nor text should be a tool-level error, got %s", resps[0].Result)
+	}
+}
+
+func TestMCPServer_NexusSpeakToolCall_NoEngineIsToolError(t *testing.T) {
+	withNoTTSEngine(t)
+	resps := driveMCP(t, `{"jsonrpc":"2.0","id":43,"method":"tools/call","params":{"name":"nexus_speak","arguments":{"text":"hello"}}}`)
+	if len(resps) != 1 {
+		t.Fatalf("expected 1 response, got %d", len(resps))
+	}
+	var res struct {
+		IsError bool `json:"isError"`
+	}
+	if err := json.Unmarshal(resps[0].Result, &res); err != nil {
+		t.Fatalf("unmarshal tool result: %v", err)
+	}
+	if !res.IsError || !strings.Contains(mcpResultText(t, resps[0].Result), "no text-to-speech engine") {
+		t.Fatalf("missing engine should be a tool-level error naming the problem, got %s", resps[0].Result)
+	}
+}

@@ -55,6 +55,7 @@ nexus map        # index every narrated file and guided tour
 nexus diff <path>   # diff a file's last two narrated versions
 nexus check       # report files still flagged with a desync marker
 nexus tour <slug>   # print a guided tour's stops
+nexus speak <path>  # read a file's explainer entry aloud (--summary for the gist)
 ```
 
 `nexus init` installs a post-commit git hook that queues every commit for
@@ -102,7 +103,7 @@ edit it by hand.
 ## MCP server
 
 `nexus mcp` runs a read-only [Model Context Protocol](https://modelcontextprotocol.io)
-server over stdio, exposing the explainer branch as three tools instead of
+server over stdio, exposing the explainer branch as four tools instead of
 requiring an agent to shell out to `nexus` and parse its output:
 
 - **`nexus_explainer`** — a code file's current explainer entry (same data
@@ -115,8 +116,13 @@ requiring an agent to shell out to `nexus` and parse its output:
   there before reading any code.
 - **`nexus_tour`** — one guided tour's ordered stops (same data as
   `nexus tour <slug> --json`).
+- **`nexus_speak`** — reads an entry (or any text the agent composes)
+  aloud through the machine's own text-to-speech, for "read me the
+  summary of auth.py" (same engine as `nexus speak`; see
+  [Reading aloud](#reading-aloud)). The one tool here with a side effect:
+  it returns as soon as audio starts, and `stop: true` interrupts it.
 
-All three share the exact same lookup code the CLI commands use, so an MCP
+All four share the exact same lookup code the CLI commands use, so an MCP
 client and a shell script can never see different results. Use MCP over
 shelling out when the host doesn't want to spawn a subprocess per lookup,
 or when it can hold a longer-lived server connection across a whole
@@ -147,6 +153,37 @@ Any MCP host that can launch a stdio server works. The general shape:
 
 `nexus` must be on `PATH` for the host to find it. Verify the server
 responds by asking the agent to call `nexus_map`.
+
+## Reading aloud
+
+`nexus speak` reads an explainer entry through the operating system's own
+text-to-speech engine — macOS `say`, Linux `espeak-ng`/`espeak`/`spd-say`,
+Windows `System.Speech` — so it works from a bare terminal and from any
+MCP-host agent (via `nexus_speak`) with nothing else installed. No browser,
+no editor extension.
+
+```bash
+nexus speak src/auth.py             # read the whole narrative
+nexus speak src/auth.py --summary   # just the one-sentence gist
+nexus speak --text "Anything else"  # arbitrary text; "-" reads stdin
+nexus speak src/auth.py --print     # show what would be read, silently
+nexus speak --stop                  # interrupt whatever is playing
+```
+
+Markdown syntax, code fences and mermaid diagrams are stripped first so the
+audio is prose rather than punctuation; a desynced entry is announced as
+"this explainer may be out of date with the code" instead of reading the
+marker line. Only one thing speaks at a time — a new `speak` replaces the
+one in progress.
+
+Pick a voice with `--voice <name>`, or set `NEXUS_SPEAK_VOICE` once for your
+machine (a personal preference, so it's an environment variable rather than
+a field in the committed `settings.json`). The names are whatever your
+engine accepts — `say -v ?` lists them on macOS.
+
+With an agent, just ask: "read me the summary of `src/auth.py`", "read me
+the request-lifecycle tour", "stop reading". The agent fetches the text via
+the other tools where it needs to and hands it to `nexus_speak`.
 
 ## The `narrate` skill
 
