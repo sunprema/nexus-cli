@@ -1,22 +1,25 @@
 ---
 path: "internal/cli/mcp.go"
-summary: "The `nexus mcp` command: a stdio Model Context Protocol server exposing explainer entries and guided tours as MCP tools for agents."
-source_commit: bddecdf16a40ec36024e405738ac44087ef644a9
+summary: "The `nexus mcp` command: a stdio Model Context Protocol server exposing explainer entries, guided tours, and read-aloud (nexus_speak) as MCP tools for agents."
 desynced: false
 ---
 
 # internal/cli/mcp.go
 
 ## What this does
-`nexus mcp` runs a read-only MCP (Model Context Protocol) server over
-stdio, so an MCP-host agent can call `nexus_explainer`, `nexus_map`, and
-`nexus_tour` as tools instead of shelling out to `nexus show`/`nexus
-map`/`nexus tour` itself. All three tools are thin wrappers around the same
-`compute*` functions those CLI commands already use (`computeNexusShow` in
-`show.go`, `computeNexusMap` in `map.go`, `computeNexusTourShow` in
-`tour.go`), so an MCP client and a shell script always see identical
-path-mapping and branch resolution — neither surface can drift from the
-other.
+`nexus mcp` runs an MCP (Model Context Protocol) server over stdio, so an
+MCP-host agent can call `nexus_explainer`, `nexus_map`, `nexus_tour`, and
+`nexus_speak` as tools instead of shelling out to `nexus show`/`nexus
+map`/`nexus tour`/`nexus speak` itself. Every tool is a thin wrapper
+around the same function its CLI command already uses (`computeNexusShow`
+in `show.go`, `computeNexusMap` in `map.go`, `computeNexusTourShow` in
+`tour.go`, `runNexusSpeak` in `speak.go`), so an MCP client and a shell
+script always see identical behaviour — neither surface can drift from
+the other.
+
+The first three tools are read-only. `nexus_speak` is the one with a side
+effect: it makes the person's computer read an explainer entry (or any
+text the agent composes) aloud, for "read me the summary of auth.py".
 
 ## How it works
 Transport is newline-delimited JSON-RPC 2.0, the MCP stdio framing:
@@ -33,12 +36,25 @@ including a batch array, which this server doesn't support — gets a -32700
 parse error and the server recovers to read the next line rather than
 terminating.
 
-Each of the three tool handlers follows the same shape: resolve the repo
-root, call the matching `compute*` function, and marshal the result as the
-tool's text content. A tool that legitimately "found nothing" (no
-explainer entry yet, no tour with that slug) is an ordinary successful
-result, not an error — only an actual failure to open the repo or read a
-blob is reported as a tool error (`isError: true` in the MCP response).
+Each tool handler follows the same shape: resolve what it needs, call the
+shared function, and marshal the result as the tool's text content. A
+tool that legitimately "found nothing" (no explainer entry yet, no tour
+with that slug, nothing to read aloud) is an ordinary successful result
+carrying an explanation, not an error — only an actual failure (can't
+open the repo, can't read a blob, no speech engine on this machine) is
+reported as a tool error (`isError: true`). Missing required arguments
+are tool errors too, not protocol errors, so the agent sees a readable
+message instead of a JSON-RPC fault.
+
+`nexus_speak` accepts `path` + `mode` (`summary` or `full`), or free
+`text`, plus `voice`, `print` (return the prepared text instead of
+speaking), and `stop` (interrupt whatever is playing). It always runs
+detached: the tool returns as soon as audio starts, with an estimated
+duration, because a full narrative can play for minutes and a blocked
+tool call would stall the agent for all of it. The tool's description
+tells the agent not to echo the spoken text back and not to queue more
+until that time has passed — advice, since the server can't enforce it.
 
 ## Recent changes
+- Added the `nexus_speak` tool — the first one with a side effect — wrapping `runNexusSpeak` in detached mode so an agent can read entries aloud without blocking; tool-call argument parsing grew `mode`, `text`, `voice`, `stop`, `print` (pending commit)
 - Initial port: adapted from entireio/cli's `entire mcp` command, keeping only the three nexus_* tools (nexus_explainer, nexus_map, nexus_tour) — dropped agent_help/entire_status, which have no equivalent in a standalone Nexus binary, and the strategy.WithFreshGitRemoteCache call, which was Entire-specific caching this repo doesn't need (bddecdf)
