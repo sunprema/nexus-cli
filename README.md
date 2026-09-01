@@ -329,6 +329,25 @@ CodeLens on every file shows its narration status, and clicking it opens
 the explainer split-screen beside the code. It shells out to this CLI
 (`nexus show`/`diff`/`map`/`tour`), so it needs `nexus` on `PATH`.
 
+## Browser viewer
+
+`docs/` is a static single-page viewer for any repo's explainer branch —
+paste `owner/repo`, get every narrated file with its summary, the
+narrative beside the code, and the guided tours. Nothing to install: it
+reads the branch listing from GitHub's tree API once and every file from
+`raw.githubusercontent.com`, so a Nexus repo can be shown to someone from
+a link:
+
+```
+https://<owner>.github.io/nexus-cli/?repo=sunprema/nexus-cli&file=internal/cli/show.go&view=split
+```
+
+Every piece of state (file, line, tour stop, layout) lives in the query
+string, so any view is shareable. Public repos only — the page holds no
+token. See [docs/README.md](docs/README.md) for the parameters, the
+conventions it mirrors from this CLI, and how it is deployed
+(`.github/workflows/pages.yml`, Pages source set to "GitHub Actions").
+
 ## Development
 
 ```bash
