@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nexus Explainer Viewer</title>
+<meta name="description" content="Read any Nexus repo's explainer branch — the human-intent narrative beside the code — from a plain URL. No install.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>📖</text></svg>">
+<link rel="stylesheet" href="vendor/highlight-github-light.min.css" data-theme-style="light">
+<link rel="stylesheet" href="vendor/highlight-github-dark.min.css" data-theme-style="dark">
+<link rel="stylesheet" href="viewer.css">
+</head>
+<body>
+<a class="skip-link" href="#narrative">Skip to narrative</a>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true">📖</span>
+    <span class="brand-name">Nexus <span>Explainer</span></span>
+  </div>
+
+  <form class="repo-form" id="repo-form">
+    <label class="sr-only" for="repo-input">GitHub repository</label>
+    <input id="repo-input" name="repo" type="text" spellcheck="false" autocapitalize="off"
+           placeholder="owner/repo or a GitHub URL">
+    <button type="submit">Load</button>
+  </form>
+
+  <div class="topbar-actions">
+    <div class="segmented" role="group" aria-label="Layout">
+      <button type="button" data-view="narrative" aria-pressed="true">Narrative</button>
+      <button type="button" data-view="split" aria-pressed="false">Split</button>
+      <button type="button" data-view="code" aria-pressed="false">Code</button>
+    </div>
+    <button type="button" class="icon-btn" id="copy-link" title="Copy a link to this view">Copy link</button>
+    <button type="button" class="icon-btn" id="theme-toggle" title="Toggle light / dark" aria-label="Toggle light / dark">◐</button>
+  </div>
+</header>
+
+<div class="layout" id="layout">
+  <button type="button" class="sidebar-toggle" id="sidebar-toggle" aria-expanded="false" aria-controls="sidebar">Files</button>
+
+  <aside class="sidebar" id="sidebar">
+    <div class="repo-meta" id="repo-meta"></div>
+    <label class="sr-only" for="filter">Filter files</label>
+    <input id="filter" class="filter" type="search" placeholder="Filter files…" spellcheck="false">
+    <nav class="tree" id="tree" aria-label="Narrated files"></nav>
+  </aside>
+
+  <main class="content" id="content">
+    <div class="tourbar" id="tourbar" hidden></div>
+
+    <div class="panes" id="panes">
+      <section class="pane pane-narrative" id="narrative" aria-label="Explainer narrative">
+        <div class="pane-head">
+          <div class="pane-title" id="narrative-title">Explainer</div>
+          <div class="pane-links" id="narrative-links"></div>
+        </div>
+        <div class="pane-body" id="narrative-body"></div>
+      </section>
+
+      <section class="pane pane-code" id="code" aria-label="Source code">
+        <div class="pane-head">
+          <div class="pane-title" id="code-title">Code</div>
+          <div class="pane-links" id="code-links"></div>
+        </div>
+        <div class="pane-body" id="code-body"></div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script src="vendor/marked-15.0.7.min.js"></script>
+<script src="vendor/purify-3.2.4.min.js"></script>
+<script src="vendor/js-yaml-4.1.0.min.js"></script>
+<script src="vendor/highlight-11.11.1.min.js"></script>
+<script src="viewer.js" type="module"></script>
+</body>
+</html>
