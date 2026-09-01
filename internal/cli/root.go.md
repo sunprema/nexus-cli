@@ -1,6 +1,7 @@
 ---
 path: "internal/cli/root.go"
 summary: "Builds the flattened `nexus` root command, wires in every subcommand (including `speak`), and sets the version Cobra reports for --version."
+source_commit: fd3a7698657e8565a5fd672d9905e93f453c398b
 desynced: false
 ---
 
@@ -26,6 +27,6 @@ auto-register the `--version` flag; without it, the flag wouldn't exist at
 all.
 
 ## Recent changes
-- Wired in the `speak` subcommand (read an explainer entry aloud via the OS's text-to-speech; see `speak.go`) (pending commit)
+- Wired in the `speak` subcommand (read an explainer entry aloud via the OS's text-to-speech; see `speak.go`) (fd3a769)
 - Wired in the `mcp` subcommand and set `Version: versioninfo.Version` (bddecdf)
 - Initial port: this file replaces entireio/cli's `newNexusGroupCmd` (which added a "nexus" group under the `entire` root) with a standalone root command (37415bf)

@@ -1,6 +1,7 @@
 ---
 path: "internal/cli/mcp.go"
 summary: "The `nexus mcp` command: a stdio Model Context Protocol server exposing explainer entries, guided tours, and read-aloud (nexus_speak) as MCP tools for agents."
+source_commit: fd3a7698657e8565a5fd672d9905e93f453c398b
 desynced: false
 ---
 
@@ -56,5 +57,5 @@ tells the agent not to echo the spoken text back and not to queue more
 until that time has passed — advice, since the server can't enforce it.
 
 ## Recent changes
-- Added the `nexus_speak` tool — the first one with a side effect — wrapping `runNexusSpeak` in detached mode so an agent can read entries aloud without blocking; tool-call argument parsing grew `mode`, `text`, `voice`, `stop`, `print` (pending commit)
+- Added the `nexus_speak` tool — the first one with a side effect — wrapping `runNexusSpeak` in detached mode so an agent can read entries aloud without blocking; tool-call argument parsing grew `mode`, `text`, `voice`, `stop`, `print` (fd3a769)
 - Initial port: adapted from entireio/cli's `entire mcp` command, keeping only the three nexus_* tools (nexus_explainer, nexus_map, nexus_tour) — dropped agent_help/entire_status, which have no equivalent in a standalone Nexus binary, and the strategy.WithFreshGitRemoteCache call, which was Entire-specific caching this repo doesn't need (bddecdf)

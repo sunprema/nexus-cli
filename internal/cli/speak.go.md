@@ -1,6 +1,7 @@
 ---
 path: "internal/cli/speak.go"
 summary: "The `nexus speak` command and the engine behind the nexus_speak MCP tool: reads an explainer entry aloud through the operating system's own text-to-speech, with one-speaker-at-a-time stop/replace."
+source_commit: fd3a7698657e8565a5fd672d9905e93f453c398b
 desynced: false
 ---
 
@@ -34,7 +35,8 @@ and by the MCP tool, then goes through `runNexusSpeak`:
 3. **Make it speakable.** `nexusSpeakableText` turns Markdown into prose
    an engine can read: code fences and mermaid blocks are dropped;
    headings, bullets and numbered items lose their markers and gain a
-   trailing period so the voice pauses; links, images, emphasis,
+   trailing period so the voice pauses (unless the line already ends in
+   punctuation); links, images, emphasis,
    backticks and HTML tags are unwrapped; table rows become
    comma-separated lists; blank-line runs collapse. Desync marker lines
    are removed — and because a listener can't see the callout, a
@@ -77,4 +79,4 @@ still names that pid, so a finished speaker never erases the record of
 a newer one that replaced it.
 
 ## Recent changes
-- New file: `nexus speak` command plus the shared `runNexusSpeak` used by the `nexus_speak` MCP tool — native OS text-to-speech chosen over the browser Web Speech API so it works from a terminal and from every MCP host with no extension (see ADR 0005) (pending commit)
+- New file: `nexus speak` command plus the shared `runNexusSpeak` used by the `nexus_speak` MCP tool — native OS text-to-speech chosen over the browser Web Speech API so it works from a terminal and from every MCP host with no extension (see ADR 0005) (fd3a769)
