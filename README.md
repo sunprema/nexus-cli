@@ -55,6 +55,7 @@ nexus map        # index every narrated file and guided tour
 nexus diff <path>   # diff a file's last two narrated versions
 nexus check       # report files still flagged with a desync marker
 nexus tour <slug>   # print a guided tour's stops
+nexus history [path] # incidents, decisions, and reverts recorded against a path
 nexus speak <path>  # read a file's explainer entry aloud (--summary for the gist)
 ```
 
@@ -103,7 +104,7 @@ edit it by hand.
 ## MCP server
 
 `nexus mcp` runs a read-only [Model Context Protocol](https://modelcontextprotocol.io)
-server over stdio, exposing the explainer branch as four tools instead of
+server over stdio, exposing the explainer branch as five tools instead of
 requiring an agent to shell out to `nexus` and parse its output:
 
 - **`nexus_explainer`** — a code file's current explainer entry (same data
@@ -116,13 +117,19 @@ requiring an agent to shell out to `nexus` and parse its output:
   there before reading any code.
 - **`nexus_tour`** — one guided tour's ordered stops (same data as
   `nexus tour <slug> --json`).
+- **`nexus_history`** — the incident/decision/revert records anchored to
+  a file or directory (same data as `nexus history [path] --json`). An
+  agent should call this before changing an area it doesn't know well —
+  a record often says exactly what not to change and why. See
+  [History records](#history-records). `nexus_explainer` already embeds
+  the same records for a single file.
 - **`nexus_speak`** — reads an entry (or any text the agent composes)
   aloud through the machine's own text-to-speech, for "read me the
   summary of auth.py" (same engine as `nexus speak`; see
   [Reading aloud](#reading-aloud)). The one tool here with a side effect:
   it returns as soon as audio starts, and `stop: true` interrupts it.
 
-All four share the exact same lookup code the CLI commands use, so an MCP
+All five share the exact same lookup code the CLI commands use, so an MCP
 client and a shell script can never see different results. Use MCP over
 shelling out when the host doesn't want to spawn a subprocess per lookup,
 or when it can hold a longer-lived server connection across a whole
@@ -264,6 +271,55 @@ same `desynced` status for one file at a time.
 By default the Verifier runs on whatever model drafted the narrative; set
 `verifier_model` in [Settings](#settings) to pin it to a different model
 instead.
+
+### History records
+
+An explainer entry describes what a file *is* now. It has no memory of
+what *happened* to it: after a revert it reads as if nothing changed, and
+"we tried X, it broke production, we went back" survives only in
+`git log`. History records hold that — tiny, path-anchored notes under
+`.nexus/history/` on the explainer branch, one per event:
+
+```yaml
+---
+kind: incident          # incident | decision | revert
+title: "Partial refunds timed out under load"
+date: 2026-03-04
+source_commit: <the code commit>
+paths:
+  - src/payments
+ref: "INC-4471"         # a pointer to the team's ticket/ADR — never its contents
+link: "https://…"       # optional
+---
+The ledger check retried 5 times and each retry re-locked the row. Retries
+were cut to 3 with backoff; don't raise them again without load-testing.
+```
+
+The `narrate` skill writes one only when the commit itself carries a
+signal, so nothing new has to be remembered:
+
+- an `Incident: INC-4471` or `Decision: ADR-0006` git trailer in the
+  commit message (plus an optional `Link: <url>` trailer),
+- a revert (`git revert`'s own message shape), or
+- a commit that adds or changes a file under an `adr/` directory.
+
+It never guesses from words like "fix" in a subject — a false record costs
+more trust than a missed one — and every record must be anchored to at
+least one path; that's the line between "context for the code" and "a
+wiki in git", and Nexus stays on the code side of it.
+
+Records deliberately stay out of the explainer file, so the narrative
+reads clean. They surface where a reader is already looking:
+
+```bash
+nexus history                     # every record, newest first
+nexus history src/payments        # records for a directory (or a file, or a parent/child of one)
+nexus show src/payments/refund.go --json   # 'history' field carries the same records
+```
+
+and over MCP via `nexus_history`, or embedded in `nexus_explainer`'s
+result — so an agent about to edit a file sees what has gone wrong there
+before, without a second lookup.
 
 ## Editor integration
 

@@ -40,6 +40,13 @@ type nexusShowResult struct {
 	// for an ordinary file, not an error.
 	Tests   []nexusTestIntent `json:"tests,omitempty"`
 	Content string            `json:"content"`
+	// History lists the incident/decision/revert records anchored to this
+	// path (see history.go) — deliberately kept out of the explainer file's
+	// own content so the narrative stays uncluttered, but surfaced here so
+	// an agent that calls this before editing a file sees what has gone
+	// wrong here before without a second lookup. Populated even when
+	// found=false: a file can have history before it has narration.
+	History []nexusHistoryEntry `json:"history,omitempty"`
 	// Error distinguishes "Nexus isn't set up here at all" / "the explainer
 	// branch doesn't exist" from the ordinary found=false case (Nexus is
 	// working fine, this particular file just hasn't been narrated yet).
@@ -150,6 +157,12 @@ func computeNexusShow(ctx context.Context, repoRoot, path string) (nexusShowResu
 		ExplainerPath:   explainerPath,
 		ExplainerBranch: explainerBranch,
 	}
+
+	history, err := collectNexusHistory(tree, path)
+	if err != nil {
+		return nexusShowResult{}, fmt.Errorf("scan %s for history records: %w", explainerBranch, err)
+	}
+	result.History = history
 
 	f, err := tree.File(explainerPath)
 	if err != nil {

@@ -70,6 +70,18 @@ trust this over scanning prose) and the inline callout (human-visible in
 the rendered document). See `docs/adr/0004-explainer-frontmatter.md` for
 why both, not one or the other.
 
+The explainer describes what a file *is* now; it has no memory of what
+*happened* to it — after a revert, it reads as if nothing ever changed.
+For that, this skill also writes **history records** (step 6b): tiny,
+path-anchored notes under `.nexus/history/` on the explainer branch, one
+per event that outlives the diff — a production incident and its fix, a
+decision taken on purpose, a revert. They're written only when the commit
+itself carries the signal (a trailer, a revert, an ADR change), never
+guessed from keywords, and they never go into the explainer file — `nexus
+show --json`, `nexus history`, and the `nexus_explainer`/`nexus_history`
+MCP tools surface them per path. See
+`docs/adr/0006-path-anchored-history-records.md`.
+
 ## When This Skill Activates
 
 Use after a code change that should be reviewable via the explainer branch —
@@ -149,6 +161,13 @@ followed by a blank line, then the content.
     never a restatement of its assertions, e.g. "asserts err is nil after
     three calls". A reader can already see the assertions; the reason
     `tests` exists is to say what they're *for*.
+16. A history record (step 6b) is written only when the commit itself
+    carries the signal — an `Incident:`/`Decision:` trailer, a revert, an
+    ADR file changed. Never infer one from words like "fix" or "hotfix"
+    in a subject, and never copy a ticket's contents in: a record is a
+    pointer plus one paragraph, anchored to at least one path. If it
+    can't be anchored to a path, it doesn't belong in Nexus. Records
+    never go into the explainer file itself.
 
 ## Process
 
@@ -340,6 +359,70 @@ staged/unstaged fallback.
 
 Create parent directories under the worktree as needed.
 
+### 6b. Record history, when the commit carries a signal
+
+Only for a queued commit — the staged/unstaged fallback has no commit
+message to read. Check the commit for these signals:
+
+```bash
+git show -s --format=%B <sha> | git interpret-trailers --parse   # trailers
+git show -s --format=%s <sha>                                    # subject
+git show -s --format=%as <sha>                                   # author date, YYYY-MM-DD
+```
+
+- **`Incident: <id or one line>`** trailer → kind `incident`.
+- **`Decision: <id or one line>`** trailer → kind `decision`.
+- **A revert**: subject starts with `Revert "`, or the body contains
+  `This reverts commit` → kind `revert`.
+- **An ADR added or changed**: a file in the commit under a directory
+  named `adr/` (e.g. `docs/adr/0006-foo.md`) → kind `decision`; `ref` is
+  the ADR's number/name. (ADR files themselves are usually excluded from
+  narration by `.nexusignore` or by not being code — this signal is read
+  from the commit's file list, not from step 3's filtered list.)
+- A **`Link: <url>`** trailer, if present, goes into `link` on whichever
+  record the other signals produce.
+
+No signal → skip this step. Do **not** infer a record from words like
+"fix", "hotfix", or "prod" in a subject: a false record costs more trust
+than a missed one (rule 16).
+
+For each signal (usually one), write
+`$WORKTREE/.nexus/history/<date>-<kind>-<slug>.md`, where `<slug>` is
+2–6 kebab-case words from the title. If a record with this
+`source_commit` already exists there, update it in place rather than
+adding a second.
+
+```markdown
+---
+kind: incident
+title: "<one line: what happened, in plain words>"
+date: <YYYY-MM-DD, the commit's author date>
+source_commit: <full 40-character sha>
+paths:
+  - <code path the event is about>
+ref: "<INC-4471 / ADR-0006 / whatever the trailer gave — omit if none>"
+link: "<url from a Link: trailer — omit if none>"
+---
+<One paragraph, at most 4 sentences: what happened, and what someone about
+to touch these paths should know or avoid. Written from the diff and the
+commit message — never a copy of the ticket.>
+```
+
+- `paths` are the code files the event is actually about — normally the
+  files this commit changed that survived step 3's filtering; narrow the
+  list if only some of them matter. For a decision from an ADR, use the
+  paths the ADR names, falling back to the other files in the same
+  commit. Anchor to a directory when the event is about an area rather
+  than one file; use `.` only for a genuinely repo-wide decision. A
+  record with no path isn't listed by anything — it's not a record.
+- Quote `title`, `ref`, and `link`, same reason as `path`/`summary` in
+  step 6.
+- Don't touch the explainer file: `nexus show --json`, `nexus history
+  <path>`, and the `nexus_explainer`/`nexus_history` MCP tools surface
+  records for a path on their own. The narrative stays clean.
+- Records skip step 7's verifier: their claims come from the commit
+  message and diff, not from a draft that could drift from the code.
+
 ### 7. Verify against the code
 
 For each file just written in step 6 (skip ones that were only deleted —
@@ -422,8 +505,10 @@ in order, before moving to step 9.
 Print the `Nexus Narrate:` header, then group by commit (or the single
 staged/unstaged pass): for each, list the files touched with a one-line
 summary each (or "deleted — code file removed"), flagging any file where
-step 7 added a `**Nexus desync**` marker, and the explainer commit it
-landed in. If step 8 was skipped anywhere, say "No explainer changes were
+step 7 added a `**Nexus desync**` marker, any history record step 6b
+wrote (kind and title, e.g. "history: incident — Partial refunds timed
+out under load"), and the explainer commit it landed in. If step 8 was
+skipped anywhere, say "No explainer changes were
 needed" for that entry instead. If the queue started with more entries than
 you finished, say how many remain (e.g. "3 of 5 pending commits narrated —
 stopped after a failure on <sha>, see below").

@@ -152,7 +152,7 @@ func TestMCPServer_ToolsList(t *testing.T) {
 	for _, tl := range res.Tools {
 		names[tl.Name] = true
 	}
-	for _, want := range []string{"nexus_explainer", "nexus_map", "nexus_tour"} {
+	for _, want := range []string{"nexus_explainer", "nexus_map", "nexus_tour", "nexus_history"} {
 		if !names[want] {
 			t.Errorf("tools/list missing %q; got %v", want, names)
 		}

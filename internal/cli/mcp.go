@@ -16,9 +16,9 @@ import (
 )
 
 // `nexus mcp` runs a Model Context Protocol (MCP) server over stdio so that
-// MCP-host agents can reach a repo's explainer data (per-file narratives and
-// guided tours) as MCP tools, instead of shelling out to `nexus show`/`nexus
-// map`/`nexus tour` themselves. Transport is newline-delimited JSON-RPC 2.0
+// MCP-host agents can reach a repo's explainer data (per-file narratives,
+// guided tours, and history records) as MCP tools, instead of shelling out
+// to `nexus show`/`nexus map`/`nexus tour`/`nexus history` themselves. Transport is newline-delimited JSON-RPC 2.0
 // (the MCP stdio framing).
 
 // mcpProtocolVersion is the MCP revision we advertise when a client doesn't
@@ -178,7 +178,7 @@ func mcpToolDefs() []map[string]any {
 	return []map[string]any{
 		{
 			"name":        "nexus_explainer",
-			"description": "Get Project Nexus's explainer-branch narrative for a code file — a short, human-written summary of why the file is the way it is and how its logic flows, kept in sync with the code. Call this BEFORE reading or editing a file's raw code when Nexus is set up in this repo: the explainer often already captures the intent and edge cases you'd otherwise have to re-derive from the diff or commit history. Returns JSON: 'summary' is a one-sentence gist if you just need the file's purpose, not the full 'content'; found=false means no entry yet (nothing wrong, just not narrated); desynced=true means a prior check found the explainer disagreeing with the code — treat the code as authoritative and don't fully trust that entry's claims until it's re-narrated. For a test file, 'tests' lists each test function by name with what it actually verifies (not its assertions) — call this BEFORE editing or deleting a test so you know what invariant you'd be breaking, not just what it asserts.",
+			"description": "Get Project Nexus's explainer-branch narrative for a code file — a short, human-written summary of why the file is the way it is and how its logic flows, kept in sync with the code. Call this BEFORE reading or editing a file's raw code when Nexus is set up in this repo: the explainer often already captures the intent and edge cases you'd otherwise have to re-derive from the diff or commit history. Returns JSON: 'summary' is a one-sentence gist if you just need the file's purpose, not the full 'content'; found=false means no entry yet (nothing wrong, just not narrated); desynced=true means a prior check found the explainer disagreeing with the code — treat the code as authoritative and don't fully trust that entry's claims until it's re-narrated. For a test file, 'tests' lists each test function by name with what it actually verifies (not its assertions) — call this BEFORE editing or deleting a test so you know what invariant you'd be breaking, not just what it asserts. 'history' lists the incident/decision/revert records anchored to this path (present even when found=false): what has gone wrong here before and what was decided on purpose — read them before changing the file, and don't undo something a record says was deliberate.",
 			"inputSchema": objSchema(map[string]any{
 				"path": map[string]any{
 					"type":        "string",
@@ -198,6 +198,16 @@ func mcpToolDefs() []map[string]any {
 				"slug": map[string]any{
 					"type":        "string",
 					"description": "Tour slug, as listed by nexus_map (e.g. \"request-lifecycle\").",
+				},
+			}),
+		},
+		{
+			"name":        "nexus_history",
+			"description": "Get the history records for a path — short, path-anchored notes about what has HAPPENED to the code, which the per-file explainer can't hold because it only describes the code's current state: a production incident and its fix, a decision taken on purpose, a revert. Call this BEFORE modifying an area you don't know well, or when debugging something that feels like it may have broken before: a record often says exactly what not to change and why. Pass 'path' (a file or directory; records anchored to a parent or child of it match too) or omit it to list every record. Returns JSON: entries newest first, each with kind (incident/decision/revert), title, date, the anchored paths, an optional external 'ref'/'link' (a pointer to the team's ticket or ADR — the ticket itself is not stored here), and a one-paragraph 'body'. count=0 means nothing recorded, not an error. nexus_explainer already embeds the same records for a single file; use this for a directory, or to browse everything.",
+			"inputSchema": objSchema(map[string]any{
+				"path": map[string]any{
+					"type":        "string",
+					"description": "File or directory path, relative to the repo root (e.g. \"src/payments\"). Omit to list every record.",
 				},
 			}),
 		},
@@ -264,6 +274,8 @@ func handleMCPToolCall(ctx context.Context, params json.RawMessage) (any, *mcpEr
 		return handleNexusMapTool(ctx)
 	case "nexus_tour":
 		return handleNexusTourTool(ctx, call.Arguments.Slug)
+	case "nexus_history":
+		return handleNexusHistoryTool(ctx, call.Arguments.Path)
 	case "nexus_speak":
 		return handleNexusSpeakTool(ctx, nexusSpeakRequest{
 			Path:   call.Arguments.Path,
@@ -344,6 +356,28 @@ func handleNexusTourTool(ctx context.Context, slug string) (any, *mcpError) {
 	}
 
 	result, err := computeNexusTourShow(ctx, repoRoot, slug)
+	if err != nil {
+		return mcpToolErrorResult(err.Error()), nil
+	}
+
+	data, err := json.Marshal(result)
+	if err != nil {
+		return mcpToolErrorResult(fmt.Sprintf("encode result: %v", err)), nil
+	}
+	return mcpToolTextResult(string(data)), nil
+}
+
+// handleNexusHistoryTool serves the nexus_history MCP tool. It shares
+// computeNexusHistory (history.go) with `nexus history`, same
+// drift-proofing reason as handleNexusExplainerTool. An empty path means
+// "every record"; zero records is an ordinary result, not a tool error.
+func handleNexusHistoryTool(ctx context.Context, path string) (any, *mcpError) {
+	repoRoot, err := paths.WorktreeRoot(ctx)
+	if err != nil {
+		return mcpToolErrorResult("not a git repository"), nil
+	}
+
+	result, err := computeNexusHistory(ctx, repoRoot, path)
 	if err != nil {
 		return mcpToolErrorResult(err.Error()), nil
 	}

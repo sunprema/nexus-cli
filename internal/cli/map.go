@@ -49,6 +49,11 @@ type nexusMapResult struct {
 	Count           int             `json:"count"`
 	WithSummary     int             `json:"with_summary"`
 	Entries         []nexusMapEntry `json:"entries"`
+	// HistoryCount is how many history records (history.go) the branch
+	// holds. They aren't listed here — they're events, not files or tours,
+	// and are queried by path via 'nexus history' / nexus_history — but the
+	// count tells a reader whether that lookup is worth making at all.
+	HistoryCount int `json:"history_count"`
 	// Error mirrors nexusShowResult's: set only for "Nexus isn't set up" /
 	// "explainer branch missing", never for the ordinary "zero files
 	// narrated yet" case.
@@ -107,6 +112,9 @@ func runNexusMap(cmd *cobra.Command, asJSON bool) error {
 	}
 	if result.Count == 0 {
 		fmt.Fprintf(out, "No narrated files found in %q yet.\n", result.ExplainerBranch)
+		if result.HistoryCount > 0 {
+			fmt.Fprintf(out, "%d history record(s) — see 'nexus history [path]'.\n", result.HistoryCount)
+		}
 		return nil
 	}
 	for _, e := range result.Entries {
@@ -125,6 +133,9 @@ func runNexusMap(cmd *cobra.Command, asJSON bool) error {
 		fmt.Fprintf(out, "%s%s: %s\n", prefix, e.Path, summary)
 	}
 	fmt.Fprintf(out, "\n%d file(s) narrated, %d with a summary.\n", result.Count, result.WithSummary)
+	if result.HistoryCount > 0 {
+		fmt.Fprintf(out, "%d history record(s) — see 'nexus history [path]'.\n", result.HistoryCount)
+	}
 	return nil
 }
 
@@ -155,6 +166,7 @@ func computeNexusMap(ctx context.Context, repoRoot string) (nexusMapResult, erro
 	}
 
 	var entries []nexusMapEntry
+	historyCount := 0
 	err = tree.Files().ForEach(func(f *object.File) error {
 		if !strings.HasSuffix(f.Name, ".md") {
 			return nil
@@ -162,6 +174,16 @@ func computeNexusMap(ctx context.Context, repoRoot string) (nexusMapResult, erro
 		content, err := f.Contents()
 		if err != nil {
 			return fmt.Errorf("read %s: %w", f.Name, err)
+		}
+
+		if strings.HasPrefix(f.Name, nexusHistoryDir) {
+			// A history record is neither a per-file entry nor a tour;
+			// counted, not listed (see HistoryCount). Malformed ones are
+			// skipped the same way a stop-less tour is.
+			if _, _, ok := parseNexusHistoryFrontmatter(content); ok {
+				historyCount++
+			}
+			return nil
 		}
 
 		if strings.HasPrefix(f.Name, nexusTourDir) {
@@ -218,6 +240,7 @@ func computeNexusMap(ctx context.Context, repoRoot string) (nexusMapResult, erro
 		Count:           len(entries),
 		WithSummary:     withSummary,
 		Entries:         entries,
+		HistoryCount:    historyCount,
 	}, nil
 }
 

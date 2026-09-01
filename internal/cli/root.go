@@ -30,6 +30,7 @@ the source of truth: nothing here rewrites main to match the explainer.`,
 	cmd.AddCommand(newNexusDiffCmd())
 	cmd.AddCommand(newNexusMapCmd())
 	cmd.AddCommand(newNexusTourCmd())
+	cmd.AddCommand(newNexusHistoryCmd())
 	cmd.AddCommand(newNexusSpeakCmd())
 	cmd.AddCommand(newNexusPostCommitHookCmd())
 	cmd.AddCommand(newMCPCmd())
